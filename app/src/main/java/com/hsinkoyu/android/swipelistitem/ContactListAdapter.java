@@ -5,8 +5,8 @@ import android.content.Context;
 import android.database.Cursor;
 import android.view.View;
 import android.view.ViewGroup;
+import android.view.ViewTreeObserver;
 import android.widget.SimpleCursorAdapter;
-import android.widget.TextView;
 
 /**
  * Created by HsinkoYu on 2016/9/2.
@@ -21,7 +21,7 @@ public class ContactListAdapter extends SimpleCursorAdapter {
     @Override
     public View newView(Context context, Cursor cursor, ViewGroup parent) {
         final View view = super.newView(context, cursor, parent);
-        SwipeListItem.accept(context, view, ((ListActivity)context).getListView(), SwipeListItem.SWIPE_LEFT, SwipeListItem.TYPE_PULL_OUT, null,
+        final SwipeListItem swipeListItem = SwipeListItem.accept(context, view, ((ListActivity)context).getListView(), SwipeListItem.SWIPE_LEFT, SwipeListItem.TYPE_PULL_OUT, null,
                 new SwipeListItem.OnSwipeListener() {
                     public void onStart(int direction, int distance) {
                         //Log.v(TAG, "SwipeListItem onStart() direction = " + direction + " distance = " + distance);
@@ -55,7 +55,15 @@ public class ContactListAdapter extends SimpleCursorAdapter {
                 }
         );
 
+        view.getViewTreeObserver().addOnGlobalLayoutListener(new ViewTreeObserver.OnGlobalLayoutListener() {
+            @Override
+            public void onGlobalLayout() {
+                swipeListItem.setWidth(view.getWidth());
+                swipeListItem.setHeight(view.getHeight());
+                view.getViewTreeObserver().removeOnGlobalLayoutListener(this);
+            }
+        });
+
         return view;
     }
-
 }

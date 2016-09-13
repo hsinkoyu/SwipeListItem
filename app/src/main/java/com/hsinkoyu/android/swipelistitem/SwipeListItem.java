@@ -28,39 +28,19 @@ public class SwipeListItem implements View.OnTouchListener {
     public static final int SWIPE_LEFT  = 0x04;
     public static final int SWIPE_RIGHT = 0x08;
 
-    // Modify these below to match your list item
-    public static final int SWIPE_LIST_ITEM_HEIGHT = 179;
-    public static final int SWIPE_LIST_ITEM_WIDTH = 1080;
-    private static final int H_SWIPING_THRESHOLD = 20; // horizontal swiping threshold
-    private static final int V_SWIPING_THRESHOLD = 20; // vertical swiping threshold
-    public static final int H_SWIPED_THRESHOLD = SWIPE_LIST_ITEM_WIDTH * 2 / 3; // 2/3 of the list item width
-    public static final int V_SWIPED_THRESHOLD = SWIPE_LIST_ITEM_HEIGHT / 2; // half of the list item height
-    private static final int SMOOTH_SWIPING_DELAY = 1; // 1 millisecond
-    private static final int SMOOTH_SWIPING_STEP = 50; // 50 pixels
-    // Modify these above to match your list item
-
-    /*
-     *                  Type 2: Open Page
-     *
-     * +------------------------------------------------+
-     * |<--------------- Screen width ----------------->|
-     * |                                                |
-     * |            Foreground:  mCenter                |
-     * |                                                |
-     * |            Backgrounds: mTop                   |
-     * |                         mBottom                |
-     * |                         mRight                 |
-     * |                         mLeft                  |
-     * |                                                |
-     * |                    Method:                     |
-     * |     Set the visibility of backgrounds, and     |
-     * |     offset the foreground view's location.     |
-     * |                                                |
-     * +------------------------------------------------+
-     */
+    private final int H_SWIPING_THRESHOLD = 20; // horizontal swiping threshold
+    private final int V_SWIPING_THRESHOLD = 20; // vertical swiping threshold
+    private final float H_SWIPED_THRESHOLD_RATIO = 2.0f / 3.0f; // 2/3 of the list item width
+    private final float V_SWIPED_THRESHOLD_RATIO = 1.0f / 2.0f; // half of the list item height
+    private final int SMOOTH_SWIPING_DELAY = 1; // 1 millisecond
+    private final int SMOOTH_SWIPING_STEP = 50; // 50 pixels
 
     /*
      *                  Type 1: Pull Out
+     *
+     *      Offset both the foreground (mCenter) and 
+     *      backgrounds (mTop | mBottom | mRight | mLeft)
+     *      views' location.
      *
      *                  +----------------+
      *                  |                |
@@ -75,13 +55,41 @@ public class SwipeListItem implements View.OnTouchListener {
      *                  |     mBottom    |
      *                  |                |
      *                  +----------------+
+     *
+     *
+     *                  Type 2: Open Page
+     *
+     *        Set the visibility of backgrounds, and
+     *        offset the foreground view's location.
+     *
+     * +------------------------------------------------+
+     * |<--------------- Screen width ----------------->|
+     * |                                                |
+     * |                                                |
+     * |                                                |
+     * |             Foreground:  mCenter               |
+     * |                                                |
+     * |             Backgrounds: mTop                  |
+     * |                          mBottom               |
+     * |                          mRight                |
+     * |                          mLeft                 |
+     * |                                                |
+     * |                                                |
+     * |                                                |
+     * +------------------------------------------------+
      */
+
     private View mMotherView;
     private View mCenter; // R.id.center; shown on SWIPE_STILL
     private View mTop;    // R.id.top;    shown on SWIPE_DOWN
     private View mBottom; // R.id.bottom; shown on SWIPE_UP
     private View mLeft;   // R.id.left;   shown on SWIPE_RIGHT
     private View mRight;  // R.id.right;  shown on SWIPE_LEFT
+
+    private int mItemHeight;
+    private int mItemWidth;
+    private int mSwipedThresholdH;
+    private int mSwipedThresholdV;
 
     private float xDown, yDown, xUp, yUp, xMove, yMove;
 
@@ -117,8 +125,10 @@ public class SwipeListItem implements View.OnTouchListener {
         public void onSwiped(int direction, int distance);
     }
 
-    public static void accept(Context context, View view, ListView listView, int acceptedDirections, int type, InterestedGesture gestureCb, OnSwipeListener listener) {
-        view.setOnTouchListener(new SwipeListItem(context, view, listView, acceptedDirections, type, gestureCb, listener));
+    public static SwipeListItem accept(Context context, View view, ListView listView, int acceptedDirections, int type, InterestedGesture gestureCb, OnSwipeListener listener) {
+        SwipeListItem swipeListItem = new SwipeListItem(context, view, listView, acceptedDirections, type, gestureCb, listener);
+        view.setOnTouchListener(swipeListItem);
+        return swipeListItem;
     }
 
     public static void reject(View view) {
@@ -156,30 +166,36 @@ public class SwipeListItem implements View.OnTouchListener {
         }
 
         mTop = view.findViewById(R.id.top);
-        if (mTop == null)
+        if (mTop == null) {
             throw new IllegalArgumentException("No top child view");
-        if (mTop.getWidth() != mCenter.getWidth() || mTop.getHeight() != mCenter.getHeight())
-            throw new IllegalArgumentException("Dimensions of the top child are not the same as the center ones.");
+        }
 
         mBottom = view.findViewById(R.id.bottom);
-        if (mBottom == null)
+        if (mBottom == null) {
             throw new IllegalArgumentException("No bottom child view");
-        if (mBottom.getWidth() != mCenter.getWidth() || mBottom.getHeight() != mCenter.getHeight())
-            throw new IllegalArgumentException("Dimensions of the bottom child are not the same as the center ones.");
+        }
 
         mLeft = view.findViewById(R.id.left);
-        if (mLeft == null)
+        if (mLeft == null) {
             throw new IllegalArgumentException("No left child view");
-        if (mLeft.getWidth() != mCenter.getWidth() || mLeft.getHeight() != mCenter.getHeight())
-            throw new IllegalArgumentException("Dimensions of the left child are not the same as the center ones.");
+        }
 
         mRight = view.findViewById(R.id.right);
-        if (mRight == null)
+        if (mRight == null) {
             throw new IllegalArgumentException("No right child view");
-        if (mRight.getWidth() != mCenter.getWidth() || mRight.getHeight() != mCenter.getHeight())
-            throw new IllegalArgumentException("Dimensions of the right child are not the same as the center ones.");
+        }
 
         mGestureDetector = new GestureDetector(mContext, new SwipeDetector());
+    }
+
+    public void setWidth(int width) {
+        mItemWidth = width;
+        mSwipedThresholdH = (int)(mItemWidth * H_SWIPED_THRESHOLD_RATIO);
+    }
+
+    public void setHeight(int height) {
+        mItemHeight = height;
+        mSwipedThresholdV = (int)(mItemHeight * V_SWIPED_THRESHOLD_RATIO);
     }
 
     public boolean onTouch(View v, MotionEvent event) {
@@ -252,9 +268,9 @@ public class SwipeListItem implements View.OnTouchListener {
                 yDistance = (int)(yUp - yDown);
                 if (mDirection != SWIPE_STILL) {
                     boolean goSwiping = false;
-                    if ((Math.abs(xDistance) > H_SWIPED_THRESHOLD) && (mDirection == SWIPE_RIGHT || mDirection == SWIPE_LEFT)) {
+                    if ((Math.abs(xDistance) > mSwipedThresholdH) && (mDirection == SWIPE_RIGHT || mDirection == SWIPE_LEFT)) {
                         goSwiping = true;
-                    } else if ((Math.abs(yDistance) > V_SWIPED_THRESHOLD) && (mDirection == SWIPE_DOWN || mDirection == SWIPE_UP)) {
+                    } else if ((Math.abs(yDistance) > mSwipedThresholdV) && (mDirection == SWIPE_DOWN || mDirection == SWIPE_UP)) {
                         goSwiping = true;
                     }
 
@@ -348,28 +364,28 @@ public class SwipeListItem implements View.OnTouchListener {
 
     private void goSwiping() {
         if (mDirection == SWIPE_LEFT) {
-            if (mCancellingOrSwipingDistance > -SWIPE_LIST_ITEM_WIDTH) {
+            if (mCancellingOrSwipingDistance > -mItemWidth) {
                 swipe(mDirection, mCancellingOrSwipingDistance);
                 mListener.onGoSwiping(mDirection, mCancellingOrSwipingDistance);
                 mCancellingOrSwipingDistance -= SMOOTH_SWIPING_STEP;
 
                 mHandler.postDelayed(mSwipingRunner, SMOOTH_SWIPING_DELAY);
             } else {
-                mCancellingOrSwipingDistance = -SWIPE_LIST_ITEM_WIDTH;
+                mCancellingOrSwipingDistance = -mItemWidth;
                 swipe(mDirection, mCancellingOrSwipingDistance);
                 mListener.onSwiped(mDirection, mCancellingOrSwipingDistance);
 
                 onCancelledOrSwiped();
             }
         } else if (mDirection == SWIPE_RIGHT) {
-            if (mCancellingOrSwipingDistance < SWIPE_LIST_ITEM_WIDTH) {
+            if (mCancellingOrSwipingDistance < mItemWidth) {
                 swipe(mDirection, mCancellingOrSwipingDistance);
                 mListener.onGoSwiping(mDirection, mCancellingOrSwipingDistance);
                 mCancellingOrSwipingDistance += SMOOTH_SWIPING_STEP;
 
                 mHandler.postDelayed(mSwipingRunner, SMOOTH_SWIPING_DELAY);
             } else {
-                mCancellingOrSwipingDistance = SWIPE_LIST_ITEM_WIDTH;
+                mCancellingOrSwipingDistance = mItemWidth;
                 swipe(mDirection, mCancellingOrSwipingDistance);
                 mListener.onSwiped(mDirection, mCancellingOrSwipingDistance);
 
@@ -387,7 +403,7 @@ public class SwipeListItem implements View.OnTouchListener {
             }
             mCenter.offsetLeftAndRight(distance - mCenter.getLeft());
             if (mType == TYPE_PULL_OUT) {
-                mRight.offsetLeftAndRight(distance - mRight.getLeft() + SWIPE_LIST_ITEM_WIDTH);
+                mRight.offsetLeftAndRight(distance - mRight.getLeft() + mItemWidth);
             }
         } else if (direction == SWIPE_RIGHT) {
             if (distance < 0) {
@@ -395,7 +411,7 @@ public class SwipeListItem implements View.OnTouchListener {
             }
             mCenter.offsetLeftAndRight(distance - mCenter.getLeft());
             if (mType == TYPE_PULL_OUT) {
-                mLeft.offsetLeftAndRight(distance - mLeft.getLeft() - SWIPE_LIST_ITEM_WIDTH);
+                mLeft.offsetLeftAndRight(distance - mLeft.getLeft() - mItemWidth);
             }
         } else {
             // SWIPE_UP and SWIPE_DOWN are not supported yet.
