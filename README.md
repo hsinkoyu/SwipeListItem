@@ -1,4 +1,10 @@
-SwipeListItem - Make an Android list view item swipable
+SwipeListItem
+=============
+
+Make an Android list view item swipable
+---------------------------------------
+
+----------
 
 The concept of swiping a list item is straightforward. There are two types
 of background views displaying.
@@ -55,4 +61,3 @@ You can add the code to take appropriate actions when moving views.
 
 Have fun.
 Hsinko Yu <hsinkoyu@gmail.com>
-
