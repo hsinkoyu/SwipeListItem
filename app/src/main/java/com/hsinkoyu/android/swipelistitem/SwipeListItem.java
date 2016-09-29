@@ -35,6 +35,9 @@ public class SwipeListItem implements View.OnTouchListener {
     private final int SMOOTH_SWIPING_DELAY = 1; // 1 millisecond
     private final int SMOOTH_SWIPING_STEP = 50; // 50 pixels
 
+    private final int RESTORING_VIEW_DELAY = 1;
+    private final int RESTORING_VIEW_STEP = 200; // 200 pixels
+
     /*
      *                  Type 1: Pull Out
      *
@@ -104,6 +107,7 @@ public class SwipeListItem implements View.OnTouchListener {
 
     private final Handler mHandler = new Handler();
     private boolean mOnCancellingOrSwiping = false;
+    private boolean mOnRestoringView = false;
     private int mCancellingOrSwipingDistance = 0;
     private Runnable mCancellingRunner = new Runnable() {
         public void run() {
@@ -115,8 +119,14 @@ public class SwipeListItem implements View.OnTouchListener {
             goSwiping();
         }
     };
+    private Runnable mRestoringRunner = new Runnable() {
+        public void run() {
+            goRestoring();
+        }
+    };
 
     public interface OnSwipeListener {
+        public void onReady();
         public void onStart(int direction, int distance);
         public void onMove(int direction, int distance);
         public void onGoCancelling(int direction, int distance);
@@ -146,10 +156,6 @@ public class SwipeListItem implements View.OnTouchListener {
 
         if (context == null) {
             throw new IllegalArgumentException("Null context");
-        }
-
-        if (listener == null) {
-            throw new IllegalArgumentException("Null listener");
         }
 
         if (view == null) {
@@ -185,6 +191,7 @@ public class SwipeListItem implements View.OnTouchListener {
             throw new IllegalArgumentException("No right child view");
         }
 
+        setWidth(mListView.getWidth());
         mGestureDetector = new GestureDetector(mContext, new SwipeDetector());
     }
 
@@ -198,14 +205,18 @@ public class SwipeListItem implements View.OnTouchListener {
         mSwipedThresholdV = (int)(mItemHeight * V_SWIPED_THRESHOLD_RATIO);
     }
 
+    public void setOnSwipeListener(OnSwipeListener listener) {
+        mListener = listener;
+    }
+
     public boolean onTouch(View v, MotionEvent event) {
         boolean handled = true;
         int xDistance;
         int yDistance;
         int distance = 0;
 
-        if (mOnCancellingOrSwiping) {
-            // During cancelling or swiping, do nothing to touch events.
+        if (mOnCancellingOrSwiping || mOnRestoringView) {
+            // During cancelling, swiping or restoring, do nothing to touch events.
             return handled;
         }
 
@@ -217,6 +228,7 @@ public class SwipeListItem implements View.OnTouchListener {
                 xDown = event.getX();
                 yDown = event.getY();
                 mDirection = SWIPE_STILL;
+                mListener.onReady();
                 // To let mCenter have the chance selecting background colour via selector. Ex. android:background="@drawable/notification_selector"
                 mCenter.setPressed(true);
                 break;
@@ -328,6 +340,10 @@ public class SwipeListItem implements View.OnTouchListener {
         mListView.requestDisallowInterceptTouchEvent(false);
     }
 
+    private void onRestored() {
+        mOnRestoringView = false;
+    }
+
     private void goCancelling() {
         if (mDirection == SWIPE_LEFT) {
             if (mCancellingOrSwipingDistance < 0) {
@@ -416,6 +432,35 @@ public class SwipeListItem implements View.OnTouchListener {
         } else {
             // SWIPE_UP and SWIPE_DOWN are not supported yet.
         }
+    }
+
+    private void goRestoring() {
+        int centerX = mCenter.getLeft();
+        int offset = (Math.abs(centerX) <= RESTORING_VIEW_STEP) ? Math.abs(centerX) : RESTORING_VIEW_STEP;
+
+        if (centerX > 0) {
+            mCenter.offsetLeftAndRight(-offset);
+            if (mType == TYPE_PULL_OUT) {
+                mLeft.offsetLeftAndRight(-offset);
+            }
+
+            mHandler.postDelayed(mRestoringRunner, RESTORING_VIEW_DELAY);
+        } else if (centerX < 0) {
+            mCenter.offsetLeftAndRight(offset);
+            if (mType == TYPE_PULL_OUT) {
+                mRight.offsetLeftAndRight(offset);
+            }
+
+            mHandler.postDelayed(mRestoringRunner, RESTORING_VIEW_DELAY);
+        } else {
+            onRestored();
+        }
+    }
+
+    public void restoreView() {
+        mOnRestoringView = true;
+
+        goRestoring();
     }
 
     private boolean performListViewItemClick(MotionEvent e) {
