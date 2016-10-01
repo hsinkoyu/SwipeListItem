@@ -1,17 +1,23 @@
 package com.hsinkoyu.android.swipelistitem;
 
+import android.Manifest;
 import android.app.ListActivity;
 import android.app.LoaderManager;
 import android.content.CursorLoader;
 import android.content.Loader;
+import android.content.pm.PackageManager;
 import android.database.Cursor;
+import android.os.Build;
 import android.provider.ContactsContract;
 import android.os.Bundle;
 import android.view.View;
 import android.widget.ListView;
+import android.widget.Toast;
 
 public class MainActivity extends ListActivity
         implements LoaderManager.LoaderCallbacks<Cursor> {
+
+    private static final int PERMISSIONS_REQUEST_READ_CONTACTS = 1;
 
     // This is the Adapter being used to display the list's data
     ContactListAdapter mAdapter;
@@ -30,20 +36,43 @@ public class MainActivity extends ListActivity
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_main);
 
-        // For the cursor adapter, specify which columns go into which views
-        String[] fromColumns = {ContactsContract.Contacts.DISPLAY_NAME_PRIMARY};
-        int[] toViews = {R.id.name};
+        showContacts();
+    }
 
-        // Create an empty adapter we will use to display the loaded data.
-        // We pass null for the cursor, then update it in onLoadFinished()
-        mAdapter = new ContactListAdapter(this,
-                R.layout.contact_list_item, null,
-                fromColumns, toViews, 0);
-        setListAdapter(mAdapter);
+    private void showContacts() {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M && checkSelfPermission(Manifest.permission.READ_CONTACTS) != PackageManager.PERMISSION_GRANTED) {
+            requestPermissions(new String[] {Manifest.permission.READ_CONTACTS}, PERMISSIONS_REQUEST_READ_CONTACTS);
+            //After this point you wait for callback in onRequestPermissionsResult(int, String[], int[]) overridden method
+        } else {
+            // Android version is lesser than 6.0 or the permission is already granted.
 
-        // Prepare the loader.  Either re-connect with an existing one,
-        // or start a new one.
-        getLoaderManager().initLoader(0, null, this);
+            // For the cursor adapter, specify which columns go into which views
+            String[] fromColumns = {ContactsContract.Contacts.DISPLAY_NAME_PRIMARY};
+            int[] toViews = {R.id.name};
+
+            // Create an empty adapter we will use to display the loaded data.
+            // We pass null for the cursor, then update it in onLoadFinished()
+            mAdapter = new ContactListAdapter(this,
+                    R.layout.contact_list_item, null,
+                    fromColumns, toViews, 0);
+            setListAdapter(mAdapter);
+
+            // Prepare the loader.  Either re-connect with an existing one,
+            // or start a new one.
+            getLoaderManager().initLoader(0, null, this);
+        }
+    }
+
+    @Override
+    public void onRequestPermissionsResult(int requestCode, String[] permissions, int[] grantResults) {
+        if (requestCode == PERMISSIONS_REQUEST_READ_CONTACTS) {
+            if (grantResults[0] == PackageManager.PERMISSION_GRANTED) {
+                // Permission is granted
+                showContacts();
+            } else {
+                Toast.makeText(this, "Grant the permission to see contacts.", Toast.LENGTH_SHORT).show();
+            }
+        }
     }
 
     // Called when a new Loader needs to be created

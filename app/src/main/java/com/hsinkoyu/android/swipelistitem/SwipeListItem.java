@@ -30,7 +30,7 @@ public class SwipeListItem implements View.OnTouchListener {
 
     private final int H_SWIPING_THRESHOLD = 20; // horizontal swiping threshold
     private final int V_SWIPING_THRESHOLD = 20; // vertical swiping threshold
-    private final float H_SWIPED_THRESHOLD_RATIO = 2.0f / 3.0f; // 2/3 of the list item width
+    private final float H_SWIPED_THRESHOLD_RATIO = 1.0f / 2.0f; // half of the list item width
     private final float V_SWIPED_THRESHOLD_RATIO = 1.0f / 2.0f; // half of the list item height
     private final int SMOOTH_SWIPING_DELAY = 1; // 1 millisecond
     private final int SMOOTH_SWIPING_STEP = 50; // 50 pixels
